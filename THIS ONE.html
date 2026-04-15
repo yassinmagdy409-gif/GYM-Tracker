@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gym Tracker V4</title>
+
+<style>
+body {
+  font-family: Arial;
+  background: linear-gradient(180deg, #0f172a, #020617);
+  color: white;
+  text-align: center;
+  margin: 0;
+}
+
+.container {
+  max-width: 500px;
+  margin: auto;
+  padding: 15px;
+}
+
+.card {
+  background: #1e293b;
+  padding: 20px;
+  border-radius: 20px;
+  transform: translateY(40px);
+  opacity: 0;
+  transition: all 0.5s ease;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+}
+
+.card.active {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.meta {
+  font-size: 14px;
+  opacity: 0.7;
+  margin-bottom: 10px;
+}
+
+.pr { color: #38bdf8; margin-bottom:5px;}
+.suggest { color: #facc15; margin-bottom:10px;}
+
+.feedback { font-weight:bold; margin-top:10px;}
+.good { color:#22c55e;}
+.bad { color:#ef4444;}
+
+.timer {
+  font-size: 18px;
+  margin-top: 10px;
+  color: #f97316;
+}
+
+.sets input {
+  width: 70px;
+  margin: 5px;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  font-size: 16px;
+  text-align: center;
+}
+
+button {
+  margin-top: 15px;
+  padding: 14px;
+  width: 100%;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(90deg,#22c55e,#16a34a);
+  color: white;
+  font-size: 18px;
+}
+
+.top button {
+  width: 45%;
+  margin: 5px;
+  background: #334155;
+}
+
+.progress {
+  height: 6px;
+  background: #334155;
+  border-radius: 10px;
+  margin-bottom: 15px;
+  overflow: hidden;
+}
+
+.bar {
+  height: 100%;
+  width: 0%;
+  background: #22c55e;
+  transition: width 0.4s ease;
+}
+</style>
+</head>
+
+<body>
+
+<h2>💪 Workout V4</h2>
+
+<div class="top">
+<button onclick="start('upperA')">Upper A</button>
+<button onclick="start('lowerA')">Lower A</button>
+<button onclick="start('upperB')">Upper B</button>
+<button onclick="start('lowerB')">Lower B</button>
+</div>
+
+<div class="container">
+<div class="progress"><div id="bar" class="bar"></div></div>
+<div id="card" class="card"></div>
+</div>
+
+<script>
+
+let workouts = {
+upperA: [["Cable Lateral Raises",2,"6-8","3"],["Incline Chest Machine",3,"6-12","3"],["T-Bar Row",2,"6-8","3"],["Lat Pulldown",2,"6-12","3"],["Reverse Curls",2,"6-12","3"],["Overhead Triceps",2,"6-12","3"]],
+lowerA: [["Calves Raises",2,"6-10","3"],["Adductors",2,"5-7","4"],["Leg Press",2,"6-10","2"],["Seated Leg Curl",2,"6-10","4"],["Leg Extension",1,"6-9","3"],["Cable Crunches",2,"6-10","3"],["Wrist Curls",2,"6-10","3"]],
+upperB: [["Dumbbell Press",2,"6-12","3"],["Seated Row",3,"6-10","3"],["Lat Pulldown",2,"5-7","4"],["Pushdown",2,"5-7","4"],["Preacher Curl",2,"5-12","3"]],
+lowerB: [["Y Raises",2,"6-10","3"],["Single Leg Calves",2,"5-8","3"],["SLDL",2,"5-7","3"],["Split Squat",2,"6-10","3"],["Leg Extension",2,"6-10","3"],["Shrugs",2,"6-10","3"],["Cable Crunch",2,"6-10","3"]]
+};
+
+let currentWorkout=[],index=0,session=[],type="",timerInt;
+
+function start(t){
+type=t;currentWorkout=workouts[t];index=0;session=[];nextExercise();
+}
+
+function nextExercise(){
+
+if(index>=currentWorkout.length){
+saveWorkout();
+document.getElementById("card").innerHTML="<h3>Done 💪</h3>";
+document.getElementById("bar").style.width="100%";
+return;
+}
+
+let ex=currentWorkout[index];
+
+let history=JSON.parse(localStorage.getItem(type))||[];
+let last=history.length?history[history.length-1]:null;
+let lastSets=last?last[index]:null;
+let best=lastSets?Math.max(...lastSets):0;
+
+document.getElementById("bar").style.width=(index/currentWorkout.length*100)+"%";
+
+let html=`<div class="title">${ex[0]}</div>
+<div class="meta">${ex[1]} sets • ${ex[2]} reps • Rest ${ex[3]}m</div>`;
+
+if(lastSets){
+html+=`<div class="pr">Last: ${lastSets.join("kg | ")}kg</div>`;
+html+=`<div class="pr">PR: ${best}kg</div>`;
+html+=`<div class="suggest">Try: ${best+2.5}kg</div>`;
+}
+
+html+=`<div class="sets">`;
+
+for(let i=0;i<ex[1];i++){
+html+=`<input id="s${i}" oninput="checkPR(${best})" placeholder="kg">`;
+}
+
+html+=`</div>
+<div id="feedback" class="feedback"></div>
+<div id="timer" class="timer"></div>
+<button onclick="saveSet(${ex[3]})">Next</button>`;
+
+let card=document.getElementById("card");
+card.classList.remove("active");
+
+setTimeout(()=>{card.innerHTML=html;card.classList.add("active");},200);
+}
+
+function checkPR(best){
+let inputs=document.querySelectorAll(".sets input");
+let max=0;
+inputs.forEach(i=>{let v=parseFloat(i.value)||0;if(v>max)max=v;});
+let fb=document.getElementById("feedback");
+
+if(max>best){fb.innerHTML="NEW PR 🔥";fb.className="feedback good";}
+else if(max>0){fb.innerHTML="Push more 💪";fb.className="feedback bad";}
+else fb.innerHTML="";
+}
+
+function startTimer(min){
+clearInterval(timerInt);
+let t=min*60;
+timerInt=setInterval(()=>{
+let m=Math.floor(t/60),s=t%60;
+document.getElementById("timer").innerHTML=`Rest: ${m}:${s<10?"0":""}${s}`;
+t--;
+if(t<0){clearInterval(timerInt);document.getElementById("timer").innerHTML="GO 🔥";}
+},1000);
+}
+
+function saveSet(rest){
+
+let ex=currentWorkout[index];
+let sets=[];
+
+for(let i=0;i<ex[1];i++){
+sets.push(parseFloat(document.getElementById("s"+i).value)||0);
+}
+
+session.push(sets);
+startTimer(rest);
+index++;
+setTimeout(nextExercise,1500);
+}
+
+function saveWorkout(){
+let h=JSON.parse(localStorage.getItem(type))||[];
+h.push(session);
+localStorage.setItem(type,JSON.stringify(h));
+}
+
+</script>
+
+</body>
+</html>
